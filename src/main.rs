@@ -5,13 +5,7 @@ use std::io::{BufRead, BufReader};
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
-    let file = match File::open(&args[0]) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("{}: Cannot open file", e);
-            std::process::exit(1);
-        }
-    };
+    let file = File::open(&args[0]).expect("Cannot open file");
 
     let term = Term::stdout();
     let buf_reader = BufReader::new(file);
@@ -43,17 +37,10 @@ fn main() {
             '<' => ptr -= 1,
             '+' => arr[ptr as usize] += 1,
             '-' => arr[ptr as usize] -= 1,
-            '.' => {
-                print!("{}", arr[ptr as usize] as char);
-            }
+            '.' => print!("{}", arr[ptr as usize] as char),
             ',' => {
-                arr[ptr as usize] = match Term::read_char(&term) {
-                    Ok(tc) => tc as u8,
-                    Err(e) => {
-                        eprintln!("{}: Cannot read character from standard input", e);
-                        std::process::exit(1);
-                    }
-                }
+                arr[ptr as usize] =
+                    Term::read_char(&term).expect("Cannot read character from standard input") as u8
             }
             '[' => {
                 if arr[ptr as usize] == 0 {
@@ -97,7 +84,7 @@ fn main() {
                     }
                 }
             }
-            _ => eprintln!("Cannot recognize character"),
+            _ => println!("Cannot recognize character"),
         }
         i += 1;
     }
