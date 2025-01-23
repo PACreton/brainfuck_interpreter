@@ -1,13 +1,10 @@
-use console::Term;
 use std::env;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
-
+use std::io::{self, BufRead, BufReader, Read};
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let file = File::open(&args[0]).expect("Cannot open file");
 
-    let term = Term::stdout();
     let buf_reader = BufReader::new(file);
     let mut contents: Vec<char> = Vec::new();
 
@@ -15,7 +12,17 @@ fn main() {
         match line {
             Ok(l) => {
                 for c in l.chars() {
-                    contents.push(c);
+                    if c == '<'
+                        || c == '>'
+                        || c == '+'
+                        || c == '-'
+                        || c == '.'
+                        || c == ','
+                        || c == '['
+                        || c == ']'
+                    {
+                        contents.push(c);
+                    }
                 }
             }
             Err(e) => {
@@ -39,8 +46,10 @@ fn main() {
             '-' => arr[ptr as usize] -= 1,
             '.' => print!("{}", arr[ptr as usize] as char),
             ',' => {
-                arr[ptr as usize] =
-                    Term::read_char(&term).expect("Cannot read character from standard input") as u8
+                let mut input: [u8; 1] = [0;1];
+                io::stdin().read_exact(&mut input)
+                    .expect("Cannot read input");
+                arr[ptr as usize] = input[0];
             }
             '[' => {
                 if arr[ptr as usize] == 0 {
@@ -84,7 +93,7 @@ fn main() {
                     }
                 }
             }
-            _ => println!("Cannot recognize character"),
+            _ => print!(""),
         }
         i += 1;
     }
