@@ -1,101 +1,15 @@
 use std::env;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read};
+mod interpreter;
 fn main() {
-    let args: Vec<String> = env::args().skip(1).collect();
-    let file = File::open(&args[0]).expect("Cannot open file");
-
-    let buf_reader = BufReader::new(file);
-    let mut contents: Vec<char> = Vec::new();
-
-    for line in buf_reader.lines() {
-        match line {
-            Ok(l) => {
-                for c in l.chars() {
-                    if c == '<'
-                        || c == '>'
-                        || c == '+'
-                        || c == '-'
-                        || c == '.'
-                        || c == ','
-                        || c == '['
-                        || c == ']'
-                    {
-                        contents.push(c);
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("{}: Cannot read line", e);
-                std::process::exit(1);
-            }
-        }
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 3 {
+        usage(&args[0]);
     }
 
-    let mut ptr: i32 = 0;
-    let mut arr: [u8; 30000] = [0; 30000];
+    interpreter::run(&args[2], &args[1]);
+}
 
-    // println!("{:?}", contents);
-
-    let mut i = 0;
-    while i < contents.len() {
-        match contents[i] {
-            '>' => ptr += 1,
-            '<' => ptr -= 1,
-            '+' => arr[ptr as usize] += 1,
-            '-' => arr[ptr as usize] -= 1,
-            '.' => print!("{}", arr[ptr as usize] as char),
-            ',' => {
-                let mut input: [u8; 1] = [0;1];
-                io::stdin().read_exact(&mut input)
-                    .expect("Cannot read input");
-                arr[ptr as usize] = input[0];
-            }
-            '[' => {
-                if arr[ptr as usize] == 0 {
-                    let mut stack = 1;
-                    while stack != 0 {
-                        if stack < 0 {
-                            eprintln!("Missing a matching bracket");
-                            std::process::exit(1);
-                        }
-
-                        i += 1;
-
-                        if contents[i] == '[' {
-                            stack += 1;
-                        }
-
-                        if contents[i] == ']' {
-                            stack -= 1;
-                        }
-                    }
-                }
-            }
-            ']' => {
-                if arr[ptr as usize] != 0 {
-                    let mut stack = 1;
-                    while stack != 0 {
-                        i -= 1;
-
-                        if stack < 0 {
-                            eprintln!("Missing a matching bracket");
-                            std::process::exit(1);
-                        }
-
-                        if contents[i] == '[' {
-                            stack -= 1;
-                        }
-
-                        if contents[i] == ']' {
-                            stack += 1;
-                        }
-                    }
-                }
-            }
-            _ => print!(""),
-        }
-        i += 1;
-    }
-    println!("");
+pub fn usage(filename: &str) {
+    println!("{} -v <simple|optimized> tests/<program_name>", filename);
+    std::process::exit(1);
 }
