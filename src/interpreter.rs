@@ -1,22 +1,22 @@
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
+use std::u8;
 
 enum BFOpsType {
-    IncrPtr, // Incrémente le pointeur
-    DecrPtr, // Décrémente le pointeur
-    IncrByte, // Incrémente l'octet dans la case du tableau ciblé par le pointeur
-    DecrByte, // Décrémente l'octet dans la case du tableau ciblé par le pointeur
+    IncrPtr,   // Incrémente le pointeur
+    DecrPtr,   // Décrémente le pointeur
+    IncrByte,  // Incrémente l'octet dans la case du tableau ciblé par le pointeur
+    DecrByte,  // Décrémente l'octet dans la case du tableau ciblé par le pointeur
     WriteChar, // Affiche l'octet situé dans la case du tableau ciblé par le pointeur
-    ReadChar, // Entre l'octet dans la case du tableau ciblé par le pointeur
+    ReadChar,  // Entre l'octet dans la case du tableau ciblé par le pointeur
     BeginLoop, // Début de boucle
-    EndLoop,  // Fin de boucle
+    EndLoop,   // Fin de boucle
 }
 
 struct BFOp {
     BFType: BFOpsType,
     n: u32, // Nombre de fois que l'opération est exécutée
 }
-
 
 pub fn run(filename: &str, v: &str) {
     let file = File::open(filename).expect("Cannot open file");
@@ -66,8 +66,8 @@ fn simpleinterp(contents: &Vec<char>) {
         match contents[i] {
             '>' => ptr += 1,
             '<' => ptr -= 1,
-            '+' => arr[ptr as usize] += 1,
-            '-' => arr[ptr as usize] -= 1,
+            '+' => arr[ptr as usize] = arr[ptr as usize].checked_add(1).unwrap_or(u8::MIN),
+            '-' => arr[ptr as usize] = arr[ptr as usize].checked_sub(1).unwrap_or(u8::MAX),
             '.' => print!("{}", arr[ptr as usize] as char),
             ',' => {
                 let mut input: [u8; 1] = [0; 1];
@@ -138,8 +138,8 @@ fn optinterp1(contents: &Vec<char>) {
         match contents[i] {
             '>' => ptr += 1,
             '<' => ptr -= 1,
-            '+' => arr[ptr as usize] += 1,
-            '-' => arr[ptr as usize] -= 1,
+            '+' => arr[ptr as usize] = arr[ptr as usize].checked_add(1).unwrap_or(u8::MIN),
+            '-' => arr[ptr as usize] = arr[ptr as usize].checked_sub(1).unwrap_or(u8::MAX),
             '.' => print!("{}", arr[ptr as usize] as char),
             ',' => {
                 let mut input: [u8; 1] = [0; 1];
