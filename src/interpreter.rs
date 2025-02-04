@@ -1,6 +1,23 @@
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
 
+enum BFOpsType {
+    IncrPtr, // Incrémente le pointeur
+    DecrPtr, // Décrémente le pointeur
+    IncrByte, // Incrémente l'octet dans la case du tableau ciblé par le pointeur
+    DecrByte, // Décrémente l'octet dans la case du tableau ciblé par le pointeur
+    WriteChar, // Affiche l'octet situé dans la case du tableau ciblé par le pointeur
+    ReadChar, // Entre l'octet dans la case du tableau ciblé par le pointeur
+    BeginLoop, // Début de boucle
+    EndLoop,  // Fin de boucle
+}
+
+struct BFOp {
+    BFType: BFOpsType,
+    n: u32, // Nombre de fois que l'opération est exécutée
+}
+
+
 pub fn run(filename: &str, v: &str) {
     let file = File::open(filename).expect("Cannot open file");
 
@@ -31,10 +48,10 @@ pub fn run(filename: &str, v: &str) {
         }
     }
 
-    if v == "simple" {
-        simpleinterp(&contents);
-    } else if v == "optimized" {
-        optinterp(&contents);
+    match v {
+        "simple" => simpleinterp(&contents),
+        "optiterp1" => optinterp1(&contents),
+        _ => println!("Not implemented / Does not exist"),
     }
 }
 
@@ -108,7 +125,7 @@ fn simpleinterp(contents: &Vec<char>) {
     println!("");
 }
 
-fn optinterp(contents: &Vec<char>) {
+fn optinterp1(contents: &Vec<char>) {
     let mut ptr: i32 = 0;
     let mut arr: [u8; 30000] = [0; 30000];
 
