@@ -13,6 +13,6 @@ fn main() {
 }
 
 pub fn usage(filename: &str) {
-    println!("{} -v <simple|optiterp1> tests/<program_name>", filename);
+    println!("{} -v <simple|optiterp1|optiterp2> tests/<program_name>", filename);
     std::process::exit(1);
 }

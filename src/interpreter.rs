@@ -1,20 +1,22 @@
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
 use std::u8;
-
+#[derive(Debug)]
 enum BFOpsType {
-    IncrPtr,   // Incrémente le pointeur
-    DecrPtr,   // Décrémente le pointeur
-    IncrByte,  // Incrémente l'octet dans la case du tableau ciblé par le pointeur
-    DecrByte,  // Décrémente l'octet dans la case du tableau ciblé par le pointeur
-    WriteChar, // Affiche l'octet situé dans la case du tableau ciblé par le pointeur
-    ReadChar,  // Entre l'octet dans la case du tableau ciblé par le pointeur
-    BeginLoop, // Début de boucle
-    EndLoop,   // Fin de boucle
+    NullOp,    // Invalid operation
+    IncrPtr,   // Increment the pointer
+    DecrPtr,   // Decrement the pointer
+    IncrByte,  // Increment the byte at the cell pointed to by the pointer
+    DecrByte,  // Decrement the byte at the cell pointed to by the pointer
+    WriteChar, // Output the byte at the cell pointed to by the pointer
+    ReadChar,  // Input a byte into the cell pointed to by the pointer
+    BeginLoop, // Start of loop
+    EndLoop,   // End of loop
 }
 
+#[derive(Debug)]
 struct BFOp {
-    BFType: BFOpsType,
+    bftype: BFOpsType,
     n: u32, // Nombre de fois que l'opération est exécutée
 }
 
@@ -48,9 +50,12 @@ pub fn run(filename: &str, v: &str) {
         }
     }
 
+    let program = translate_program(&contents);
+
     match v {
         "simple" => simpleinterp(&contents),
         "optiterp1" => optinterp1(&contents),
+        "optiterp2" => println!("{:?}", program),
         _ => println!("Not implemented / Does not exist"),
     }
 }
@@ -205,4 +210,95 @@ fn bracket_jumptable(contents: &Vec<char>) -> Vec<usize> {
     }
 
     jmptable
+}
+
+fn count_iteration(contents: &Vec<char>, character: &char, start: &usize) -> u32 {
+    let mut n = 0;
+    let mut idx = *start;
+
+    while idx < contents.len() && contents[idx] == *character {
+        n += 1;
+        idx += 1;
+    }
+
+    n
+}
+
+fn translate_program(contents: &Vec<char>) -> Vec<BFOp> {
+    let mut pc: usize = 0;
+    let bracket_jmptable = bracket_jumptable(contents);
+    let mut program: Vec<BFOp> = Vec::new();
+
+    while pc < contents.len() {
+        match contents[pc] {
+            '>' => {
+                let it = count_iteration(&contents, &contents[pc], &pc);
+                program.push(BFOp {
+                    bftype: BFOpsType::IncrPtr,
+                    n: it,
+                });
+                pc += it as usize;
+            }
+            '<' => {
+                let it = count_iteration(&contents, &contents[pc], &pc);
+                program.push(BFOp {
+                    bftype: BFOpsType::DecrPtr,
+                    n: it,
+                });
+                pc += it as usize;
+            }
+            '+' => {
+                let it = count_iteration(&contents, &contents[pc], &pc);
+                program.push(BFOp {
+                    bftype: BFOpsType::IncrByte,
+                    n: it,
+                });
+                pc += it as usize;
+            }
+            '-' => {
+                let it = count_iteration(&contents, &contents[pc], &pc);
+                program.push(BFOp {
+                    bftype: BFOpsType::DecrByte,
+                    n: it,
+                });
+                pc += it as usize;
+            }
+            '.' => {
+                let it = count_iteration(&contents, &contents[pc], &pc);
+                program.push(BFOp {
+                    bftype: BFOpsType::ReadChar,
+                    n: it,
+                });
+                pc += it as usize;
+            }
+            ',' => {
+                let it = count_iteration(&contents, &contents[pc], &pc);
+                program.push(BFOp {
+                    bftype: BFOpsType::WriteChar,
+                    n: it,
+                });
+                pc += it as usize;
+            }
+            '[' => {
+                program.push(BFOp {
+                    bftype: BFOpsType::BeginLoop,
+                    n: bracket_jmptable[pc] as u32,
+                });
+                pc += 1;
+            }
+            ']' => {
+                program.push(BFOp {
+                    bftype: BFOpsType::EndLoop,
+                    n: bracket_jmptable[pc] as u32,
+                });
+                pc += 1;
+            }
+            _ => program.push(BFOp {
+                bftype: BFOpsType::NullOp,
+                n: 0,
+            }),
+        }
+    }
+
+    program
 }
