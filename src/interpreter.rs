@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
 use std::u8;
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum BFOpsType {
     NullOp,    // Invalid operation
     IncrPtr,   // Increment the pointer
@@ -50,12 +50,13 @@ pub fn run(filename: &str, v: &str) {
         }
     }
 
-    let program = translate_program(&contents);
+    let bracket_jmptable = bracket_jumptable(&contents);
+    let mut program = translate_program(&contents);
 
     match v {
         "simple" => simpleinterp(&contents),
-        "optiterp1" => optinterp1(&contents),
-        "optiterp2" => println!("{:?}", program),
+        "optiterp1" => optinterp1(&contents, &bracket_jmptable),
+        "optiterp2" => optiterp2(&mut program),
         _ => println!("Not implemented / Does not exist"),
     }
 }
@@ -130,13 +131,11 @@ fn simpleinterp(contents: &Vec<char>) {
     println!("");
 }
 
-fn optinterp1(contents: &Vec<char>) {
+fn optinterp1(contents: &Vec<char>, bracket_jmptable: &Vec<usize>) {
     let mut ptr: i32 = 0;
     let mut arr: [u8; 30000] = [0; 30000];
 
     // println!("{:?}", contents);
-
-    let bracket_jmptable = bracket_jumptable(contents);
 
     let mut i = 0;
     while i < contents.len() {
@@ -224,9 +223,48 @@ fn count_iteration(contents: &Vec<char>, character: &char, start: &usize) -> u32
     n
 }
 
+fn bracket_offset(program: &mut Vec<BFOp>) {
+    let mut pc = 0;
+
+    while pc < program.len() {
+        if program[pc].bftype == BFOpsType::BeginLoop {
+            let mut nesting = 1;
+            let mut matching = pc + 1;
+
+            while nesting > 0 {
+                if matching >= program.len() {
+                    eprintln!("Missing a matching bracket");
+                    std::process::exit(1);
+                }
+
+                if program[matching].bftype == BFOpsType::BeginLoop {
+                    nesting += 1;
+                }
+
+                if program[matching].bftype == BFOpsType::EndLoop {
+                    nesting -= 1;
+                }
+
+                if nesting > 0 {
+                    matching += 1;
+                }
+            }
+
+            if nesting == 0 {
+                program[pc].n = matching as u32;
+                program[matching].n = pc as u32;
+            } else if nesting < 0 {
+                eprintln!("Missing a matching bracket");
+                std::process::exit(1);
+            }
+        }
+        pc += 1;
+    }
+
+}
+
 fn translate_program(contents: &Vec<char>) -> Vec<BFOp> {
     let mut pc: usize = 0;
-    let bracket_jmptable = bracket_jumptable(contents);
     let mut program: Vec<BFOp> = Vec::new();
 
     while pc < contents.len() {
@@ -266,7 +304,7 @@ fn translate_program(contents: &Vec<char>) -> Vec<BFOp> {
             '.' => {
                 let it = count_iteration(&contents, &contents[pc], &pc);
                 program.push(BFOp {
-                    bftype: BFOpsType::ReadChar,
+                    bftype: BFOpsType::WriteChar,
                     n: it,
                 });
                 pc += it as usize;
@@ -274,7 +312,7 @@ fn translate_program(contents: &Vec<char>) -> Vec<BFOp> {
             ',' => {
                 let it = count_iteration(&contents, &contents[pc], &pc);
                 program.push(BFOp {
-                    bftype: BFOpsType::WriteChar,
+                    bftype: BFOpsType::ReadChar,
                     n: it,
                 });
                 pc += it as usize;
@@ -282,23 +320,84 @@ fn translate_program(contents: &Vec<char>) -> Vec<BFOp> {
             '[' => {
                 program.push(BFOp {
                     bftype: BFOpsType::BeginLoop,
-                    n: bracket_jmptable[pc] as u32,
+                    n: 0,
                 });
                 pc += 1;
             }
             ']' => {
                 program.push(BFOp {
                     bftype: BFOpsType::EndLoop,
-                    n: bracket_jmptable[pc] as u32,
+                    n: 0,
                 });
                 pc += 1;
             }
-            _ => program.push(BFOp {
-                bftype: BFOpsType::NullOp,
-                n: 0,
-            }),
+            _ => {
+                program.push(BFOp {
+                    bftype: BFOpsType::NullOp,
+                    n: 0,
+                });
+                pc += 1;
+            }
         }
     }
 
     program
+}
+
+fn optiterp2(program: &mut Vec<BFOp>) {
+    let mut ptr: u32 = 0;
+    let mut arr: [u8; 30000] = [0; 30000];
+
+    // println!("{:?}", contents);
+    bracket_offset(program);
+
+    let mut i = 0;
+    while i < program.len() {
+        match program[i].bftype {
+            BFOpsType::IncrPtr => ptr += program[i].n,
+            BFOpsType::DecrPtr => ptr -= program[i].n,
+            BFOpsType::IncrByte => {
+                arr[ptr as usize] = arr[ptr as usize]
+                    .checked_add(program[i].n as u8)
+                    .unwrap_or(u8::MIN)
+            }
+            BFOpsType::DecrByte => {
+                arr[ptr as usize] = arr[ptr as usize]
+                    .checked_sub(program[i].n as u8)
+                    .unwrap_or(u8::MAX)
+            }
+            BFOpsType::WriteChar => {
+                let mut it = 0;
+                while it < program[i].n {
+                    print!("{}", arr[ptr as usize] as char);
+                    it += 1;
+                }
+            }
+            BFOpsType::ReadChar => {
+                let mut it = 0;
+                let mut input: [u8; 1] = [0; 1];
+                while it < program[i].n {
+                    io::stdin()
+                        .read_exact(&mut input)
+                        .expect("Cannot read input");
+                    arr[ptr as usize] = input[0];
+
+                    it += 1;
+                }
+            },
+            BFOpsType::BeginLoop => {
+                if arr[ptr as usize] == 0 {
+                    i = program[i].n as usize;
+                }
+            },
+            BFOpsType::EndLoop => {
+                if arr[ptr as usize] != 0 {
+                    i = program[i].n as usize;
+                }
+            },
+            _ => print!(""),
+        }
+        i += 1;
+    }
+    println!("");
 }
